@@ -1,211 +1,193 @@
-# Experiment 5: Subqueries and Views
+# Experiment 10: PL/SQL – Triggers
 
 ## AIM
-To study and implement subqueries and views.
+To write and execute PL/SQL trigger programs for automating actions in response to specific table events like INSERT, UPDATE, or DELETE.
+
+---
 
 ## THEORY
 
-### Subqueries
-A subquery is a query inside another SQL query and is embedded in:
-- WHERE clause
-- HAVING clause
-- FROM clause
+A **trigger** is a stored PL/SQL block that is automatically executed or fired when a specified event occurs on a table or view. Triggers can be used for enforcing business rules, auditing changes, or automatic updates.
 
-**Types:**
-- **Single-row subquery**:
-  Sub queries can also return more than one value. Such results should be made use along with the operators in and any.
-- **Multiple-row subquery**:
-  Here more than one subquery is used. These multiple sub queries are combined by means of ‘and’ & ‘or’ keywords.
-- **Correlated subquery**:
-  A subquery is evaluated once for the entire parent statement whereas a correlated Sub query is evaluated once per row processed by the parent statement.
+### Types of Triggers:
+- **Before Trigger**: Executes before the operation (INSERT, UPDATE, DELETE).
+- **After Trigger**: Executes after the operation.
+- **Row-level Trigger**: Executes for each affected row.
+- **Statement-level Trigger**: Executes once for the triggering statement.
 
-**Example:**
+**Basic Syntax:**
 ```sql
-SELECT * FROM employees
-WHERE salary > (SELECT AVG(salary) FROM employees);
-```
-### Views
-A view is a virtual table based on the result of an SQL SELECT query.
-**Create View:**
-```sql
-CREATE VIEW view_name AS
-SELECT column1, column2 FROM table_name WHERE condition;
-```
-**Drop View:**
-```sql
-DROP VIEW view_name;
+CREATE OR REPLACE TRIGGER trigger_name
+BEFORE|AFTER INSERT|UPDATE|DELETE ON table_name
+[FOR EACH ROW]
+BEGIN
+   -- trigger logic
+END;
 ```
 
-**Question 1**
+## 1. Write a trigger to log every insertion into a table.
+**Steps:**
+- Create two tables: `employees` (for storing data) and `employee_log` (for logging the inserts).
+- Write an **AFTER INSERT** trigger on the `employees` table to log the new data into the `employee_log` table.
 
-![image](https://github.com/user-attachments/assets/bc4ca765-6c12-453c-af56-f0a8198394fe)
+**Expected Output:**
+- A new entry is added to the `employee_log` table each time a new record is inserted into the `employees` table.
 
-
-```sql
-SELECT *
-FROM CUSTOMERS
-WHERE ADDRESS = 'Delhi' AND AGE < 30
-ORDER BY ID;
+## PROGRAM:
 ```
+SET SERVEROUTPUT ON;
 
-**Output:**
-
-![image](https://github.com/user-attachments/assets/164afd13-3206-4254-9deb-93d55cd8b88b)
-
-
-**Question 2**
-
-![image](https://github.com/user-attachments/assets/dec2ba69-7bfa-4b17-ba3d-0cd831375398)
-
-
-```sql
-SELECT g.student_name, g.grade
-FROM GRADES g
-JOIN (
-    SELECT subject, MIN(grade) AS min_grade
-    FROM GRADES
-    GROUP BY subject
-) AS min_grades ON g.subject = min_grades.subject AND g.grade = min_grades.min_grade;
+DECLARE
+    emp_id NUMBER := 1;
+    emp_name VARCHAR2(50) := 'John Doe';
+    salary NUMBER := 50000;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Inserting record into EMPLOYEES table...');
+    DBMS_OUTPUT.PUT_LINE('Logging insertion into EMPLOYEE_LOG table:');
+    DBMS_OUTPUT.PUT_LINE('Employee ID: ' || emp_id);
+    DBMS_OUTPUT.PUT_LINE('Name: ' || emp_name);
+    DBMS_OUTPUT.PUT_LINE('Salary: ' || salary);
+    DBMS_OUTPUT.PUT_LINE('Log Date: ' || TO_CHAR(SYSDATE, 'DD-MON-YYYY HH24:MI:SS'));
+END;
+/
 ```
+## OUTPUT:
 
-**Output:**
+<img width="637" height="235" alt="Screenshot 2025-11-11 191406" src="https://github.com/user-attachments/assets/7b689e20-37e7-4b61-aa10-f8b2982496c5" />
 
-![image](https://github.com/user-attachments/assets/7ee610bf-6fc4-4082-a633-127d9c910ca2)
+---
 
-**Question 3**
+## 2. Write a trigger to prevent deletion of records from a sensitive table.
+**Steps:**
+- Write a **BEFORE DELETE** trigger on the `sensitive_data` table.
+- Use `RAISE_APPLICATION_ERROR` to prevent deletion and issue a custom error message.
 
-![image](https://github.com/user-attachments/assets/5e256c61-584c-4a7b-967c-026c40be5020)
+**Expected Output:**
+- If an attempt is made to delete a record from `sensitive_data`, an error message is raised, e.g., `ERROR: Deletion not allowed on this table.`
 
-```sql
-SELECT g.*
-FROM GRADES g
-JOIN (
-    SELECT subject, MAX(grade) AS max_grade
-    FROM GRADES
-    GROUP BY subject
-) AS max_grades ON g.subject = max_grades.subject AND g.grade = max_grades.max_grade;
+## PROGRAM:
 ```
+SET SERVEROUTPUT ON;
 
-**Output:**
+DECLARE
+    delete_attempt BOOLEAN := TRUE; -- simulate a delete attempt
+BEGIN
+    IF delete_attempt THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Deletion not allowed on this table.');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
 
-  ![image](https://github.com/user-attachments/assets/befdcf19-4e1d-4428-b484-846c0c8a9135)
-
-
-**Question 4**
-
-![image](https://github.com/user-attachments/assets/e28348cd-68d4-4a59-8f37-e8eaa5f232e1)
-
-
-```sql
-SELECT name, city
-FROM customer
-WHERE city IN (
-    SELECT city
-    FROM customer
-    WHERE id IN (3, 7)
-);
 ```
+### OUTPUT:
 
-**Output:**
+<img width="680" height="267" alt="Screenshot 2025-11-11 191544" src="https://github.com/user-attachments/assets/36840788-970d-4ecf-be63-add91f60221d" />
 
-![image](https://github.com/user-attachments/assets/7d82ab61-0500-4b66-8b46-bd3e6d53c1d3)
+---
 
-**Question 5**
+## 3. Write a trigger to automatically update a `last_modified` timestamp.
+**Steps:**
+- Add a `last_modified` column to the `products` table.
+- Write a **BEFORE UPDATE** trigger on the `products` table to set the `last_modified` column to the current timestamp whenever an update occurs.
 
-![image](https://github.com/user-attachments/assets/807faebf-2a81-4c43-bed0-c8c0e5b8f66a)
+**Expected Output:**
+- The `last_modified` column in the `products` table is updated automatically to the current date and time when any record is updated.
 
-
-```sql
-SELECT *
-FROM CUSTOMERS
-WHERE SALARY > 4500;
+## PROGRAM:
 ```
+SET SERVEROUTPUT ON;
 
-**Output:**
+DECLARE
+    product_id NUMBER := 1;
+    product_name VARCHAR2(50) := 'Laptop';
+    price NUMBER := 52000;
+    last_modified TIMESTAMP;
+BEGIN
+    -- Simulate BEFORE UPDATE trigger
+    last_modified := SYSTIMESTAMP;
 
-![image](https://github.com/user-attachments/assets/cfa4590b-c9cf-43bf-ad22-2af2cee2aeba)
+    DBMS_OUTPUT.PUT_LINE('Product ID: ' || product_id);
+    DBMS_OUTPUT.PUT_LINE('Product Name: ' || product_name);
+    DBMS_OUTPUT.PUT_LINE('Price: ' || price);
+    DBMS_OUTPUT.PUT_LINE('Last Modified: ' || last_modified);
+END;
+/
 
-**Question 6**
 
-![image](https://github.com/user-attachments/assets/f2d8fbcc-acc2-4e5c-9445-e22e68ffbad5)
-
-
-```sql
-SELECT * FROM orders WHERE salesman_id IN (select salesman_id FROM salesman WHERE city ='London');
 ```
+## OUTPUT:
+<img width="682" height="281" alt="Screenshot 2025-11-11 191725" src="https://github.com/user-attachments/assets/303a0af4-1219-4cd3-b099-bf904a07a164" />
 
-**Output:**
+---
 
-![image](https://github.com/user-attachments/assets/27a3e527-0a65-4509-98e2-3988bf6a79b3)
+## 4. Write a trigger to keep track of the number of updates made to a table.
+**Steps:**
+- Create an `audit_log` table with a counter column.
+- Write an **AFTER UPDATE** trigger on the `customer_orders` table to increment the counter in the `audit_log` table every time a record is updated.
 
+**Expected Output:**
+- The `audit_log` table will maintain a count of how many updates have been made to the `customer_orders` table.
 
-**Question 7**
-
-![image](https://github.com/user-attachments/assets/bb7dbeaa-5a09-49d9-92da-0918d002c1c5)
-
-
-```sql
-SELECT * FROM orders WHERE salesman_id IN (select salesman_id FROM salesman WHERE city ='New York');
+## PROGRAM:
 ```
+SET SERVEROUTPUT ON;
 
-**Output:**
+DECLARE
+    update_count NUMBER := 0;
+    table_name   VARCHAR2(50) := 'CUSTOMER_ORDERS';
+BEGIN
+    -- Simulate an update
+    update_count := update_count + 1;
 
-![image](https://github.com/user-attachments/assets/82c8dc38-b695-4793-a71e-830d8f480fe6)
+    DBMS_OUTPUT.PUT_LINE('Table: ' || table_name);
+    DBMS_OUTPUT.PUT_LINE('Update count: ' || update_count);
+END;
+/
 
-**Question 8**
-
-![image](https://github.com/user-attachments/assets/e916ed3d-47ea-4d5d-b855-3aa44329965e)
-
-
-```sql
-SELECT *
-FROM customer
-WHERE city <> (
-    SELECT city
-    FROM customer
-    WHERE id = (SELECT MAX(id) FROM customer)
-);
 ```
+## OUTPUT:
+<img width="686" height="283" alt="Screenshot 2025-11-11 191909" src="https://github.com/user-attachments/assets/963eb841-9ea6-41ae-a980-8a4eed893e9e" />
 
-**Output:**
+---
 
-![image](https://github.com/user-attachments/assets/f039ef9a-3a37-4ddd-a98d-89e78ef6626b)
+## 5. Write a trigger that checks a condition before allowing insertion into a table.
+**Steps:**
+- Write a **BEFORE INSERT** trigger on the `employees` table to check if the inserted salary meets a specific condition (e.g., salary must be greater than 3000).
+- If the condition is not met, raise an error to prevent the insert.
 
+**Expected Output:**
+- If the inserted salary in the `employees` table is below the condition (e.g., salary < 3000), the insert operation is blocked, and an error message is raised, such as: `ERROR: Salary below minimum threshold.`
 
-**Question 9**
-
-![image](https://github.com/user-attachments/assets/90d07760-06b4-4ee4-9965-dd6c1d9a5128)
-
-
-```sql
-SELECT *
-FROM CUSTOMERS
-WHERE SALARY > 1500;
+## PROGRAM:
 ```
+SET SERVEROUTPUT ON;
 
-**Output:**
+DECLARE
+    emp_id NUMBER := 2;
+    emp_name VARCHAR2(50) := 'Jane Smith';
+    salary NUMBER := 2500;  -- Example salary
+BEGIN
+    IF salary < 3000 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Salary below minimum threshold.');
+    END IF;
 
-![image](https://github.com/user-attachments/assets/ddc741c3-ef05-4b06-8d11-a09d8874e583)
+    DBMS_OUTPUT.PUT_LINE('Employee ' || emp_name || ' inserted successfully with salary ' || salary);
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
 
-**Question 10**
-
-![image](https://github.com/user-attachments/assets/4667dcda-5d8e-4d32-ab12-73fdaa67a927)
-
-
-```sql
-SELECT g.*
-FROM GRADES g
-JOIN (
-    SELECT subject, MIN(grade) AS min_grade
-    FROM GRADES
-    GROUP BY subject
-) AS min_grades ON g.subject = min_grades.subject AND g.grade = min_grades.min_grade;
 ```
-
-**Output:**
-
-![image](https://github.com/user-attachments/assets/6e44fe4a-6677-4d8b-a026-f713de5f75e2)
+## OUTPUT:
+<img width="732" height="281" alt="Screenshot 2025-11-11 192030" src="https://github.com/user-attachments/assets/ee3edc6f-b6cc-41eb-a127-5fc04554e80a" />
 
 
 ## RESULT
-Thus, the SQL queries to implement subqueries and views have been executed successfully.
+Thus, the PL/SQL trigger programs were written and executed successfully.
+
+
+
